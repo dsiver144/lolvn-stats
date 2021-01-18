@@ -1,0 +1,4 @@
+https://127.0.0.1:54232/lol-summoner/v1/summoners?name=H%E1%BA%A1nh%20Ph%C6%B0%C6%A1ng
+-> Get puuid from this
+https://127.0.0.1:54232/lol-ranked/v1/ranked-stats/c7545b35-3241-5f7b-b41b-42d343101eca
+-> Get rank from this.
