@@ -165,21 +165,21 @@ def show_player_info(name, champion, mode = 'details'):
     playerTag = "Aram Player" if AramGames > RiftGames else "Normal Player"
     rankMsg = "{} {} ({} wins) - {} LP (Last Season: {} {})"
     if mode == 'details':
-        print(f"  > Name    : {bcolors.HEADER}{name} ({champion}){bcolors.ENDC}")
+        print(f"  > Name     : {bcolors.HEADER}{name} ({champion}){bcolors.ENDC}")
         #print(f"  > Team    : {'Blue' if player['team'] == 'ORDER' else 'Red'}")
-        print(f"  > Recent  : {match_str} (Win Rate: {WinRate}%) ({playerTag})")
-        print(f"  > KDA     : {bcolors.OKGREEN}{Kills}{bcolors.ENDC}/{bcolors.FAIL}{Deaths}{bcolors.ENDC}/{bcolors.WARNING}{Assits}{bcolors.ENDC} ({KDA})")
-        print( "  =============================================================")
-        print( "  > Solo    : " + rankMsg.format(solo['tier'], solo['division'], solo['wins'], solo['leaguePoints'], solo['previousSeasonEndTier'], solo['previousSeasonEndDivision']))
-        print( "  > Flex    : " + rankMsg.format(flex['tier'], flex['division'], flex['wins'], flex['leaguePoints'], flex['previousSeasonEndTier'], flex['previousSeasonEndDivision']))
+        print(f"    + Recent : {match_str} (Win Rate: {WinRate}%) ({playerTag})")
+        print(f"    + KDA    : {bcolors.OKGREEN}{Kills}{bcolors.ENDC}/{bcolors.FAIL}{Deaths}{bcolors.ENDC}/{bcolors.WARNING}{Assits}{bcolors.ENDC} ({KDA})")
+        print( "   =============================================================")
+        print( "    - Solo   : " + rankMsg.format(solo['tier'], solo['division'], solo['wins'], solo['leaguePoints'], solo['previousSeasonEndTier'], solo['previousSeasonEndDivision']))
+        print( "    - Flex   : " + rankMsg.format(flex['tier'], flex['division'], flex['wins'], flex['leaguePoints'], flex['previousSeasonEndTier'], flex['previousSeasonEndDivision']))
         print("---------------------------------------------------------------------")
     elif mode == 'simple':
         lastSoloTier = solo['previousSeasonEndTier']
         lastSoloDiv = solo['previousSeasonEndDivision']
         lastFlexTier = flex['previousSeasonEndTier']
         lastFlexDiv = flex['previousSeasonEndDivision']
-        print(f"> {name} ({champion}) ({playerTag})  |  {solo['tier']} {solo['division']} {solo['leaguePoints']}LP (Last: {lastSoloTier} {lastSoloDiv}) (Solo), {flex['tier']} {flex['division']} {flex['leaguePoints']}LP (Last: {lastFlexTier} {lastFlexDiv}) (Flex)  |  KDA: {KDA}, WR: {WinRate}%")
-        print("")
+        print(f"+ {name} ({champion}) ({playerTag})  |  {solo['tier']} {solo['division']} {solo['leaguePoints']}LP (Last: {lastSoloTier} {lastSoloDiv}) (Solo), {flex['tier']} {flex['division']} {flex['leaguePoints']}LP (Last: {lastFlexTier} {lastFlexDiv}) (Flex)  |  KDA: {KDA}, WR: {WinRate}%")
+        print("-------------------------------------------------")
     return summoner
 
 
@@ -194,6 +194,7 @@ def get_playerlist(mode = 'details'):
     teams = dict()
     teams['100'] = []
     teams['200'] = []
+    champions = {}
     for player in result.json():
         if player['isBot']:
             continue
@@ -203,6 +204,7 @@ def get_playerlist(mode = 'details'):
         summoner = show_player_info(name, champion, mode)
         teamId = 100 if player['team'] == "ORDER" else 200
         teams[str(teamId)].append(name)
+        champion[name] = champion
         #print(player)
     print("> Play together Info <")
     for teamId, team in teams.items():
@@ -218,7 +220,7 @@ def get_playerlist(mode = 'details'):
                     marked[p].append(p2)
                     squad.append(p2)
         for p, friends in marked.items():
-            fstr = p + ", " + ", ".join(friends)
+            fstr = f"{p} ({champion[p]}), " + ", ".join([fr + " (" + champion[fr] + ")" for fr in friends])
             print(f"Squad: {fstr}")
         print(" ")
     playTogetherDict.clear()
@@ -259,10 +261,12 @@ def askForCommands():
     else:
         quit
 
+def main():
+    get_lol_path()
+    connect_client()
+    print(f"{bcolors.OKBLUE}Connected to League Client!{bcolors.ENDC}")
+    askForCommands()
 
-get_lol_path()
-connect_client()
-print(f"{bcolors.OKBLUE}Connected to League Client!{bcolors.ENDC}")
-#print(get_summoner_by_name("TIBEST"))
-#get_playerlist()
-askForCommands()
+if __name__ == "__main__":
+    main()
+
