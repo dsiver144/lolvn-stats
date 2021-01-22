@@ -52,6 +52,7 @@ def connect_client():
         f = open(lol_path + "/LeagueClient/lockfile", "r")
     except:
         print("Lockfile not found. Please run League of Legends to use this app.")
+        input()
         quit()
     p = re.compile(r'LeagueClient\:(\d+)\:(\d+)\:(.+?)\:https')
     m = p.match(f.readline())
@@ -92,6 +93,11 @@ def get_game_detail_data(game_id):
     url = base_url.format(port=port, endpoint=end_point)
     x = requests.get(url, auth = ('riot', password), verify=False)
     return x.json()
+def get_current_summoner():
+    end_point = "lol-summoner/v1/current-summoner/"
+    url = base_url.format(port=port, endpoint=end_point)
+    x = requests.get(url, auth = ('riot', password), verify=False)
+    return x.json()
 
 playTogetherDict = dict()
 
@@ -101,8 +107,9 @@ def show_player_info(name, champion, mode = 'details'):
     puuid = summoner['puuid']
     matches = get_match_list2(summoner['accountId'])['games']['games']
     m_index = 0
-    match_nums = min(15, len(matches))
+    match_nums = min(20, len(matches))
     match_str = ""
+    aram_str = ""
     Kills = 0.0
     Deaths = 0.0
     Assits = 0.0
@@ -125,24 +132,28 @@ def show_player_info(name, champion, mode = 'details'):
                 i += 1
             
         stats = match['participants'][0]['stats']
-        match_str += (f"{bcolors.FAIL}-{bcolors.ENDC} ", f"{bcolors.OKGREEN}O{bcolors.ENDC} ")[stats['win'] == True] # stats['victory'] == 1.0
         m_index += 1
-        Kills += stats['kills']
-        Deaths += stats['deaths']
-        Assits += stats['assists']
-        Wins += 1 if stats['win'] == True else 0
+        
+                
         if match['gameMode'] == "ARAM":
             AramGames += 1
+            #aram_str += (f"{bcolors.FAIL}-{bcolors.ENDC} ", f"{bcolors.OKGREEN}O{bcolors.ENDC} ")[stats['win'] == True]
         else:
-            
+            Kills += stats['kills']
+            Deaths += stats['deaths']
+            Assits += stats['assists']
             RiftGames += 1
+            match_str += (f"{bcolors.FAIL}-{bcolors.ENDC} ", f"{bcolors.OKGREEN}O{bcolors.ENDC} ")[stats['win'] == True]
+            Wins += 1 if stats['win'] == True else 0
+
+            
         
         #print(match)
     if match_nums != 0:
-        Kills = round(Kills / match_nums, 1)
-        Deaths = round(Deaths / match_nums, 1)    
-        Assits = round(Assits / match_nums, 1)
-        WinRate = round(Wins / match_nums, 1) * 100
+        Kills = round(Kills / RiftGames, 1)
+        Deaths = round(Deaths / RiftGames, 1)    
+        Assits = round(Assits / RiftGames, 1)
+        WinRate = round(Wins / RiftGames, 1) * 100
         KDA = (Kills + Assits) / Deaths
         KDA = round(KDA, 2)
     else:
@@ -165,9 +176,9 @@ def show_player_info(name, champion, mode = 'details'):
     playerTag = "Aram Player" if AramGames > RiftGames else "Normal Player"
     rankMsg = "{} {} ({} wins) - {} LP (Last Season: {} {})"
     if mode == 'details':
-        print(f"  > Name     : {bcolors.HEADER}{name} ({champion}){bcolors.ENDC}")
+        print(f"  > Name     : {bcolors.HEADER}{name} ({champion}){bcolors.ENDC} ({playerTag})")
         #print(f"  > Team    : {'Blue' if player['team'] == 'ORDER' else 'Red'}")
-        print(f"    + Recent : {match_str} (Win Rate: {WinRate}%) ({playerTag})")
+        print(f"    + Recent : {match_str} (Win Rate: {WinRate}%)")
         print(f"    + KDA    : {bcolors.OKGREEN}{Kills}{bcolors.ENDC}/{bcolors.FAIL}{Deaths}{bcolors.ENDC}/{bcolors.WARNING}{Assits}{bcolors.ENDC} ({KDA})")
         print( "   =============================================================")
         print( "    - Solo   : " + rankMsg.format(solo['tier'], solo['division'], solo['wins'], solo['leaguePoints'], solo['previousSeasonEndTier'], solo['previousSeasonEndDivision']))
@@ -204,9 +215,10 @@ def get_playerlist(mode = 'details'):
         summoner = show_player_info(name, champion, mode)
         teamId = 100 if player['team'] == "ORDER" else 200
         teams[str(teamId)].append(name)
-        champion[name] = champion
+        champions[name] = champion
         #print(player)
     print("> Play together Info <")
+    print("---------------------------------------------------------------------")
     for teamId, team in teams.items():
         marked = dict()
         squad = []
@@ -220,7 +232,7 @@ def get_playerlist(mode = 'details'):
                     marked[p].append(p2)
                     squad.append(p2)
         for p, friends in marked.items():
-            fstr = f"{p} ({champion[p]}), " + ", ".join([fr + " (" + champion[fr] + ")" for fr in friends])
+            fstr = f"{p} ({champions[p]}), " + ", ".join([fr + " (" + champions[fr] + ")" for fr in friends])
             print(f"Squad: {fstr}")
         print(" ")
     playTogetherDict.clear()
@@ -241,8 +253,15 @@ def searchGame():
     x = requests.get(url, auth = ('riot', password), verify=False)
     return x.json()
 
+def showCurrentSummonerInfo():
+    system("cls")
+    print("---------------------------------------------------------------------")
+    name = get_current_summoner()['displayName']
+    show_player_info(name, "None")
+    askForCommands()
+
 def askForCommands():
-    print(f"{bcolors.WARNING}Command: (q: Quit | r: Show Rank (rs: Simple) | s: Search ){bcolors.ENDC}")
+    print(f"{bcolors.WARNING}Command: (q: Quit | r: Show Rank (rs: Simple) | s: Search ){bcolors.ENDC} | c: Current Summoner")
     command = input()
     if command == 'r':
         system("cls")
@@ -258,6 +277,9 @@ def askForCommands():
         set_display_mode()
     elif command == 't':
         print(searchGame())
+    elif command == 'c':
+        system("cls")
+        showCurrentSummonerInfo()
     else:
         quit
 
