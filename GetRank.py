@@ -2,7 +2,7 @@ import requests
 from urllib.parse import quote
 import re
 import urllib3
-from os import system, name 
+from os import system, name
 urllib3.disable_warnings()
 
 # class bcolors:
@@ -45,7 +45,8 @@ name = "TIBEST"
 base_url = 'https://127.0.0.1:{port}/{endpoint}'
 port = -1
 password = -1
-
+lol_version = ""
+championIdByName = {}
 
 def connect_client():
     try:
@@ -59,6 +60,11 @@ def connect_client():
     global port, password
     port = m.group(2)
     password = m.group(3)
+
+def get_current_version():
+    url = "https://ddragon.leagueoflegends.com/api/versions.json"
+    x = requests.get(url, verify=False)
+    return x.json()
 
 def get_summoner_by_name(name):
     end_point = "lol-summoner/v1/summoners?name=" + quote(name)
@@ -110,13 +116,22 @@ def show_player_info(name, champion, mode = 'details'):
     match_nums = min(20, len(matches))
     match_str = ""
     aram_str = ""
+    # Overall stats
     Kills = 0.0
     Deaths = 0.0
     Assits = 0.0
     Wins = 0.0
+    # Champion stats
+    CKills = 0.0
+    CDeaths = 0.0
+    CAssits = 0.0
+    CWins = 0.0
+
     playTogetherDict[name] = dict()
     AramGames = 0
     RiftGames = 0
+    CGames = 0
+    hasChampKDA = False
         
     for match in matches[::-1]:
         if match is None:
@@ -132,9 +147,9 @@ def show_player_info(name, champion, mode = 'details'):
                 i += 1
             
         stats = match['participants'][0]['stats']
+        championId = match['participants'][0]['championId'];
         m_index += 1
         
-                
         if match['gameMode'] == "ARAM":
             AramGames += 1
             #aram_str += (f"{bcolors.FAIL}-{bcolors.ENDC} ", f"{bcolors.OKGREEN}O{bcolors.ENDC} ")[stats['win'] == True]
@@ -142,6 +157,17 @@ def show_player_info(name, champion, mode = 'details'):
             Kills += stats['kills']
             Deaths += stats['deaths']
             Assits += stats['assists']
+            try:
+                if (champion in championIdByName) and int(championIdByName[champion]) == championId:
+                    hasChampKDA = True
+                    CKills += stats['kills']
+                    CDeaths += stats['deaths']
+                    CAssits += stats['assists']
+                    CWins += 1 if stats['win'] == True else 0
+                    CGames += 1
+            except:
+                print("Champion not found.")
+
             RiftGames += 1
             match_str += (f"{bcolors.FAIL}-{bcolors.ENDC} ", f"{bcolors.OKGREEN}O{bcolors.ENDC} ")[stats['win'] == True]
             Wins += 1 if stats['win'] == True else 0
@@ -150,12 +176,23 @@ def show_player_info(name, champion, mode = 'details'):
         
         #print(match)
     if match_nums != 0:
-        Kills = round(Kills / RiftGames, 1)
-        Deaths = round(Deaths / RiftGames, 1)    
-        Assits = round(Assits / RiftGames, 1)
-        WinRate = round(Wins / RiftGames, 1) * 100
-        KDA = (Kills + Assits) / Deaths
-        KDA = round(KDA, 2)
+        if RiftGames != 0:
+            Kills = round(Kills / RiftGames, 1)
+            Deaths = round(Deaths / RiftGames, 1)    
+            Assits = round(Assits / RiftGames, 1)
+            WinRate = round(Wins / RiftGames, 1) * 100
+            KDA = (Kills + Assits) / Deaths
+            KDA = round(KDA, 2)
+        else:
+            WinRate = 0.0
+            KDA = 0.0
+        if hasChampKDA:
+            CKills = round(CKills / CGames, 1)
+            CDeaths = round(CDeaths / CGames, 1)    
+            CAssits = round(CAssits / CGames, 1)
+            CWinRate = round(CWins / CGames, 1) * 100
+            CKDA = (CKills + CAssits) / CDeaths
+            CKDA = round(CKDA, 2)
     else:
         KDA = 0.0
         WinRate = 0.0
@@ -175,11 +212,17 @@ def show_player_info(name, champion, mode = 'details'):
     flex = rankInfo['RANKED_FLEX_SR']
     playerTag = "Aram Player" if AramGames > RiftGames else "Normal Player"
     rankMsg = "{} {} ({} wins) - {} LP (Last Season: {} {})"
+    if hasChampKDA:
+        champKDA = f"{CKills}/{CDeaths}/{CAssits} ({CKDA}) | Win Rate: {CWinRate}% ({CGames} games)"
+    else:
+        champKDA = ""
     if mode == 'details':
         print(f"  > Name     : {bcolors.HEADER}{name} ({champion}){bcolors.ENDC} ({playerTag})")
         #print(f"  > Team    : {'Blue' if player['team'] == 'ORDER' else 'Red'}")
         print(f"    + Recent : {match_str} (Win Rate: {WinRate}%)")
         print(f"    + KDA    : {bcolors.OKGREEN}{Kills}{bcolors.ENDC}/{bcolors.FAIL}{Deaths}{bcolors.ENDC}/{bcolors.WARNING}{Assits}{bcolors.ENDC} ({KDA})")
+        if hasChampKDA:
+            print(f"    + Chmpion: {champKDA}")
         print( "   =============================================================")
         print( "    - Solo   : " + rankMsg.format(solo['tier'], solo['division'], solo['wins'], solo['leaguePoints'], solo['previousSeasonEndTier'], solo['previousSeasonEndDivision']))
         print( "    - Flex   : " + rankMsg.format(flex['tier'], flex['division'], flex['wins'], flex['leaguePoints'], flex['previousSeasonEndTier'], flex['previousSeasonEndDivision']))
@@ -238,12 +281,13 @@ def get_playerlist(mode = 'details'):
     playTogetherDict.clear()
     askForCommands()    
 
-def search_player():
-    print(f"{bcolors.OKGREEN}> Input summoner name: {bcolors.ENDC}")
-    name = input()
+def search_player(name="None", champion="None"):
+    if name == "None":
+        print(f"{bcolors.OKGREEN}> Input summoner name: {bcolors.ENDC}")
+        name = input()
     system("cls")
     print("---------------------------------------------------------------------")
-    show_player_info(name, "None")
+    show_player_info(name, champion)
     askForCommands()
 
 def searchGame():
@@ -263,6 +307,7 @@ def showCurrentSummonerInfo():
 def askForCommands():
     print(f"{bcolors.WARNING}Command: (q: Quit | r: Show Rank (rs: Simple) | s: Search ){bcolors.ENDC} | c: Current Summoner")
     command = input()
+    result = re.match(r"s (.+)", command)
     if command == 'r':
         system("cls")
         get_playerlist()
@@ -272,6 +317,12 @@ def askForCommands():
     elif command == 's':
         system("cls")
         search_player()
+    elif result:
+        system("cls")
+        args = [s.strip() for s in result.group(1).split(",")]
+        if len(args) == 1:
+            args.append("None") 
+        search_player(args[0], args[1])
     elif command == 'm':
         system("cls")
         set_display_mode()
@@ -283,10 +334,23 @@ def askForCommands():
     else:
         quit
 
+
+def generateChampionList():
+    global championIdByName
+    url = f"http://ddragon.leagueoflegends.com/cdn/{lol_version}/data/vn_VN/champion.json"
+    x = requests.get(url, verify=False)
+    for internalName, data in x.json()['data'].items():
+        championIdByName[data['name']] = data['key']
+    print("Loaded champion list!")
+    
+
 def main():
+    global lol_version
     get_lol_path()
     connect_client()
     print(f"{bcolors.OKBLUE}Connected to League Client!{bcolors.ENDC}")
+    lol_version = get_current_version()[0]
+    generateChampionList()
     askForCommands()
 
 if __name__ == "__main__":
